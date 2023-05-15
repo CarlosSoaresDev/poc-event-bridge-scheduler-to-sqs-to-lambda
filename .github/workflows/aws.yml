@@ -63,4 +63,5 @@ jobs:
            --capabilities CAPABILITY_NAMED_IAM \
            --parameter-overrides  AccessKey=${{ secrets.AWS_ACCESS_KEY_ID }} SecretKey=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
            --stack-name ${{env.service-name}}  
+       working-directory: ${{env.worker-directory-root}}  
          
