@@ -54,9 +54,7 @@ jobs:
           zip -r transactions-processor-layer.zip *
           aws s3 cp ./transactions-processor-layer.zip s3://s3-artefact-bucket
           echo " ########## Start generate layer packges ##########"
-       working-directory: ${{working-directory-build}}  
-
-
+       working-directory: ${{env.working-directory-build}}  
 
      - name: AWS Deploy CloudFormation Stack
        run: |
