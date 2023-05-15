@@ -1,6 +1,7 @@
 import json
 import requests
 import logging
+import os
 
 from sqs_service import SqsService
 
@@ -9,6 +10,8 @@ API_URI = 'https://random-data-api.com/api/v2/banks'
 
 def lambda_handler(event, context):
     try:
+        log_level = os.getenv('LOG_LEVEL', 'INFO')
+        logging.getLogger().setLevel(log_level)
         process_message(event=event)
     except Exception as ex:
         logging.error(str(ex))

@@ -113,7 +113,7 @@ Resources:
       Timeout: 15
       MemorySize: 128
       Runtime: python3.10
-      Role: arn:aws:iam::938966323991:role/AWSLambdaExecuteRole
+      Role: !GetAtt LambdaTransactionProcessorFunctionRole.Arn
       Code:
         S3Bucket: !Ref S3ArtefactBucketName
         S3Key: !Sub '${LambdaTransactionProcessorFunctionName}.zip'
@@ -126,6 +126,35 @@ Resources:
             SQS_OCCURENCE_QUEUE_URL: !GetAtt OcurrenceQueue.QueueUrl
             SQS_CURRENT_QUEUE_URL: !GetAtt SchedulerMinutesQueue.QueueUrl
 
+  LambdaTransactionProcessorFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'              
+      Policies:
+        - PolicyName: LambdaTransactionsProcessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "logs:*"
+                Resource: "*"              
+              - Effect: Allow
+                Action: 
+                 - "s3:*"
+                 - "s3-object-lambda:*"
+                Resource: "*"
+              - Effect: Allow
+                Action: "sqs:*"
+                Resource: "*"
+              
   LambdaFunctionEventSourceMapping:
    Type: AWS::Lambda::EventSourceMapping
    Properties:

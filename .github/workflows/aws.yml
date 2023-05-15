@@ -2,7 +2,6 @@ name: Infra poc event bridge schedule to sqs to lambda
 
 env:
   service-name: transactions-processor
-  working-directory-build: ./app 
   working-directory-root: ./ 
 
 on:
@@ -48,32 +47,23 @@ jobs:
      - name: Create release to layer
        run: |
           echo " ########## Start generate layer packges ##########"
-          ls -R
-          mkdir -p layer/python/lib/python3.9/site-packages
-          ls -R
-          pip3 install -r requirements.txt -t layer/python/lib/python3.9/site-packages/
+          mkdir -p layer/python/lib/python3.10/site-packages
+          pip3 install -r requirements.txt -t layer/python/lib/python3.10/site-packages/
           cd layer
-          ls -R
-          zip -r transactions-processor-layer.zip *
-          ls -R
-          aws s3 cp ./transactions-processor-layer.zip s3://s3-artefact-bucket
+          zip -r ${{env.transactions-processor}}-layer.zip *
+          aws s3 cp ./${{env.transactions-processor}}-layer.zip s3://s3-artefact-bucket
           cd ..
-          ls -R
           rm -r layer
-          ls -R
           echo " ########## Start generate layer packges ##########"
-       working-directory: ${{env.working-directory-build}}  
+       working-directory: ${{env.working-directory-root}}/app  
 
      - name: Create release to app lambda
        run: |
           echo " ########## Start generate lambda app ##########"
-          ls -R
-          zip -r transactions-processor.zip *
-          ls -R
-          aws s3 cp ./transactions-processor.zip s3://s3-artefact-bucket
-         
+          zip -r ${{env.transactions-processor}}.zip *
+          aws s3 cp ./${{env.transactions-processor}}.zip s3://s3-artefact-bucket         
           echo " ########## Start generate lambda app ##########"
-       working-directory: ${{env.working-directory-build}}  
+       working-directory: ${{env.working-directory-root}}/app  
 
      - name: AWS Deploy CloudFormation Stack
        run: |
