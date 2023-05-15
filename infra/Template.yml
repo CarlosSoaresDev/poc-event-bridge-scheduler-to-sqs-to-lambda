@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  S3ArtefactBucketName:
+    Type: String
+    Default: s3-artefact-bucket
+  OcurrenceQueueName:
+    Type: String
+    Default: ocurrence-queue
+  SQSQueueName:
+    Type: String
+    Default: scheduler-queue
+  EventBridgeScheduleByMinuteName:
+    Type: String
+    Default: schedule-by-minute
+  EventBridgeScheduleByWeekAndHoursName:
+    Type: String
+    Default: schedule-by-week-and-hours
+  LambdaTransactionProcessorFunctionName:
+    Type: String
+    Default: transactions-processor  
+  AccessKey:
+    Type: String
+  SecretKey:
+    Type: String
+    Default: transactions-processor  
+
+Resources:
+  OcurrenceQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+     QueueName: !Ref OcurrenceQueueName
+ 
+  SchedulerMinutesQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+     QueueName: !Ref SQSQueueName
+     RedrivePolicy:
+       deadLetterTargetArn: !GetAtt SchedulerMinutesQueueDQL.Arn
+       maxReceiveCount: 3
+  
+  SchedulerMinutesQueueDQL:
+    Type: AWS::SQS::Queue
+    Properties:
+     QueueName: !Sub '${SQSQueueName}-dql'
+  
+  EventBridgeSchedulerByMinute:
+    Type: AWS::Scheduler::Schedule
+    Properties: 
+      Description: "Execute Schedule minute by minute"
+      FlexibleTimeWindow: 
+        Mode : "OFF"
+      GroupName: "default"
+      Name: !Ref EventBridgeScheduleByMinuteName
+      ScheduleExpression: "rate(1 minutes)"
+      ScheduleExpressionTimezone: "America/Sao_Paulo"
+      Target: 
+        Arn: !GetAtt SchedulerMinutesQueue.Arn
+        RoleArn: !GetAtt EventBridgeScheduleRole.Arn
+        Input: '{"StartSession": "schedule-by-minute"}'
+  
+  EventBridgeSchedulerByWeekAndHours:
+    Type: AWS::Scheduler::Schedule
+    Properties: 
+      Description: "Execute Schedule minute by minute"
+      FlexibleTimeWindow: 
+        Mode : "OFF"
+      GroupName: "default"
+      Name: !Ref EventBridgeScheduleByWeekAndHoursName
+      ScheduleExpression: "cron(01 05 ? * 2-6 *)"
+      ScheduleExpressionTimezone: "America/Sao_Paulo"
+      Target: 
+        Arn: !GetAtt SchedulerMinutesQueue.Arn
+        RoleArn: !GetAtt EventBridgeScheduleRole.Arn
+        Input: '{"StartSession": "schedule-by-week-and-hours"}'
+
+  EventBridgeScheduleRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'              
+      Policies:
+        - PolicyName: EventSchedulePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "sqs:SendMessage"
+                Resource: !GetAtt SchedulerMinutesQueue.Arn
+  
+  LambdaTransactionProcessorFunctionLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      CompatibleRuntimes:
+       - python3.10
+      Content:
+        S3Bucket: !Ref S3ArtefactBucketName
+        S3Key: !Sub "${LambdaTransactionProcessorFunctionName}-layer.zip"
+      LayerName: !Sub "${LambdaTransactionProcessorFunctionName}-layer"
+
+  LambdaTransactionProcessorFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref LambdaTransactionProcessorFunctionName
+      Handler: 'lambda_function.lambda_handler'
+      Timeout: 15
+      MemorySize: 128
+      Runtime: python3.10
+      Role: arn:aws:iam::938966323991:role/AWSLambdaExecuteRole
+      Code:
+        S3Bucket: !Ref S3ArtefactBucketName
+        S3Key: !Sub '${LambdaTransactionProcessorFunctionName}.zip'
+      Layers: 
+        - !Ref LambdaTransactionProcessorFunctionLayer 
+      Environment:
+          Variables:
+            ACCESS_KEY: !Ref AccessKey
+            SECRET_KEY: !Ref SecretKey
+            SQS_OCCURENCE_QUEUE_URL: !GetAtt OcurrenceQueue.QueueUrl
+            SQS_CURRENT_QUEUE_URL: !GetAtt SchedulerMinutesQueue.QueueUrl
+
+  LambdaFunctionEventSourceMapping:
+   Type: AWS::Lambda::EventSourceMapping
+   Properties:
+     BatchSize: 10
+     Enabled: true
+     EventSourceArn: !GetAtt SchedulerMinutesQueue.Arn
+     FunctionName: !GetAtt LambdaTransactionProcessorFunction.Arn

@@ -1,0 +1,68 @@
+name: Infra poc event bridge schedule to sqs to lambda
+
+env:
+  service-name: transactions-processor
+  working-directory-build: ./app 
+  working-directory-root: ./ 
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master 
+
+    - name: Setup python     
+      uses: actions/setup-python@v4
+      with:
+       python-version: '3.10'
+
+  deploy:
+    name: Deploy       
+    runs-on: ubuntu-latest
+    needs: build
+    steps:  
+     - name: Checkout
+       uses: actions/checkout@master 
+
+     - name: root directory
+       run: ls -R
+       working-directory: ${{env.worker-directory-root}}         
+    
+     - name: Configure AWS credentials
+       id: credentialsaws
+       uses: aws-actions/configure-aws-credentials@v1
+       with:
+         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         aws-region: ${{ secrets.AWS_REGION }}
+
+     - name: Create release to layer
+       run: |
+          echo " ########## Start generate layer packges ##########"
+          mkdir -p layer/python/lib/python3.9/site-packages
+          pip3 install -r requirements.txt -t layer/python/lib/python3.9/site-packages/
+          cd layer
+          zip -r transactions-processor-layer.zip *
+          aws s3 cp ./transactions-processor-layer.zip s3://s3-artefact-bucket
+          echo " ########## Start generate layer packges ##########"
+       working-directory: ${{working-directory-build}}  
+
+
+
+     - name: AWS Deploy CloudFormation Stack
+       run: |
+           aws cloudformation deploy \
+           --template-file ./infra/template.yaml \
+           --capabilities CAPABILITY_NAMED_IAM \
+           --parameter-overrides  AccessKey=${{ secrets.AWS_ACCESS_KEY_ID }} SecretKey=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+           --stack-name ${{env.service-name}}  
+         
