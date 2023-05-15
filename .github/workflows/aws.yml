@@ -48,20 +48,38 @@ jobs:
      - name: Create release to layer
        run: |
           echo " ########## Start generate layer packges ##########"
+          ls -R
           mkdir -p layer/python/lib/python3.9/site-packages
+          ls -R
           pip3 install -r requirements.txt -t layer/python/lib/python3.9/site-packages/
           cd layer
+          ls -R
           zip -r transactions-processor-layer.zip *
+          ls -R
           aws s3 cp ./transactions-processor-layer.zip s3://s3-artefact-bucket
+          cd ..
+          ls -R
+          rm -r layer
+          ls -R
           echo " ########## Start generate layer packges ##########"
+       working-directory: ${{env.working-directory-build}}  
+
+     - name: Create release to app lambda
+       run: |
+          echo " ########## Start generate lambda app ##########"
+          ls -R
+          zip -r transactions-processor.zip *
+          ls -R
+          aws s3 cp ./transactions-processor.zip s3://s3-artefact-bucket
+         
+          echo " ########## Start generate lambda app ##########"
        working-directory: ${{env.working-directory-build}}  
 
      - name: AWS Deploy CloudFormation Stack
        run: |
            aws cloudformation deploy \
-           --template-file ./infra/template.yaml \
+           --template-file ./infra/template.yml \
            --capabilities CAPABILITY_NAMED_IAM \
            --parameter-overrides  AccessKey=${{ secrets.AWS_ACCESS_KEY_ID }} SecretKey=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-           --stack-name ${{env.service-name}}  
-       working-directory: ${{env.worker-directory-root}}  
+           --stack-name ${{env.service-name}}   
          
