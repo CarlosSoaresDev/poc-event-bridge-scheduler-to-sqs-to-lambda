@@ -79,8 +79,8 @@ jobs:
        run: |
            ls -R
            aws cloudformation deploy \
-           --template-file /infra/template.yml \
+           --template-file Template.yml \
            --capabilities CAPABILITY_NAMED_IAM \
            --parameter-overrides  AccessKey=${{ secrets.AWS_ACCESS_KEY_ID }} SecretKey=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
            --stack-name ${{env.service-name}}   
-       working-directory: ${{env.working-directory-root}}  
+       working-directory: ${{env.working-directory-root}}/infra  
