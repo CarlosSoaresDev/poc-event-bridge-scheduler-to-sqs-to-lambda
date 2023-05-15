@@ -77,8 +77,9 @@ jobs:
 
      - name: AWS Deploy CloudFormation Stack
        run: |
+           ls -R
            aws cloudformation deploy \
-           --template-file ./infra/template.yml \
+           --template-file /infra/template.yml \
            --capabilities CAPABILITY_NAMED_IAM \
            --parameter-overrides  AccessKey=${{ secrets.AWS_ACCESS_KEY_ID }} SecretKey=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
            --stack-name ${{env.service-name}}   
